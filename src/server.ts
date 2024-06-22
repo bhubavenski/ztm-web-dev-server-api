@@ -1,9 +1,25 @@
-import express from 'express'
-import cors from 'cors'
-
+import express from 'express';
+import cors from 'cors';
+import knex from 'knex';
 const app = express();
 
-import { TUser } from "@/types/schema.js";
+const dbknex = knex({
+  client: 'pg',
+  connection: {
+    host: '127.0.0.1',
+    port: 5432,
+    user: 'postgres',
+    password: '1234',
+    database: 'smart-brain',
+  },
+});
+
+dbknex
+  .select('*')
+  .from('users')
+  .then((data) => console.log(data));
+
+import { TUser } from '@/types/schema.js';
 
 const db = {
   users: [
@@ -31,11 +47,11 @@ app.use(cors());
 
 app.use(express.json());
 
-app.get('/', (req: any, res: any) => {
+app.get('/', (req, res) => {
   res.json(db.users);
 });
 
-app.post('/signin', (req: any, res: any) => {
+app.post('/signin', (req, res) => {
   if (
     req.body.email === db.users[0].email &&
     req.body.password === db.users[0].password
@@ -46,7 +62,7 @@ app.post('/signin', (req: any, res: any) => {
   }
 });
 
-app.post('/register', (req: any, res: any) => {
+app.post('/register', (req, res) => {
   const { email, name, password } = req.body;
 
   if (!email || !name || !password) {
@@ -58,50 +74,41 @@ app.post('/register', (req: any, res: any) => {
     return res.status(409).json({ error: 'Email already in use' });
   }
 
-  try {
-    const id = db.users.length.toString();
-    const newUser: TUser = {
-      id,
-      name,
-      email,
-      password,
-      entries: 0,
-      date: new Date(),
-    };
-    db.users.push(newUser);
-    res.json(newUser);
-  } catch (error) {
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  const newUser: TUser = {
+    name,
+    email,
+    joined: new Date(),
+  };
+  dbknex('users')
+    .returning('*')
+    .insert(newUser)
+    .then((resp) => res.json(resp as unknown as TUser))
+    .catch((err) => res.status(400).json(err));
 });
 
-app.get('/profile/:id', (req: any, res: any) => {
+app.get('/profile/:id', (req, res) => {
   const { id } = req.params;
-  let found = false;
-  db.users.forEach((user) => {
-    if (user.id === id) {
-      found = true;
-      return res.json(user);
-    }
-  });
-  if (!found) {
-    res.status(404).json('user not found');
-  }
+  dbknex
+    .select('*')
+    .from('users')
+    .where({ id })
+    .then((user: TUser[]) => {
+      if (user.length) {
+        res.json(user[0]);
+      } else {
+        res.status(400).json('Not found');
+      }
+    })
+    .catch((err) => res.status(400).json('error getting user'));
 });
 
-app.put('/image', (req: any, res: any) => {
+app.put('/image', (req, res) => {
   const { id } = req.body;
-  let found = false;
-  db.users.forEach((user) => {
-    if (user.id === id) {
-      found = true;
-      user.entries++;
-      return res.json(user.entries);
-    }
-  });
-  if (!found) {
-    res.status(404).json('user not found');
-  }
+  dbknex('users')
+    .where('id', '=', id)
+    .increment('entries', 1)
+    .returning('entries')
+    .then((entries)=>res.json(entries[0].entries)).catch((err)=>res.status(400).json('unable to get entries'));
 });
 
 app.listen(3001, () => {
