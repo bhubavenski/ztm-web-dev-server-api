@@ -12,7 +12,7 @@ const db = {
       name: 'Jhon',
       email: 'jhon@gmail.com',
       password: 'cookies',
-      entries: 0,
+      entries: 1,
       date: new Date(),
     },
     {
@@ -32,7 +32,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (req: any, res: any) => {
-  res.send("на маикати спагетите !!!!");
+  res.json(db.users);
 });
 
 app.post('/signin', (req: any, res: any) => {
@@ -40,7 +40,7 @@ app.post('/signin', (req: any, res: any) => {
     req.body.email === db.users[0].email &&
     req.body.password === db.users[0].password
   ) {
-    res.json('success');
+    res.json(db.users[0]);
   } else {
     res.status(400).json('error logging in');
   }
