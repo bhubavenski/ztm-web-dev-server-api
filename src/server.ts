@@ -3,7 +3,7 @@ import cors from 'cors';
 import knex from 'knex';
 const app = express();
 
-const dbknex = knex({
+const db = knex({
   client: 'pg',
   connection: {
     host: '127.0.0.1',
@@ -14,41 +14,15 @@ const dbknex = knex({
   },
 });
 
-dbknex
-  .select('*')
-  .from('users')
-  .then((data) => console.log(data));
-
 import { TUser } from '@/types/schema.js';
 
-const db = {
-  users: [
-    {
-      id: '123',
-      name: 'Jhon',
-      email: 'jhon@gmail.com',
-      password: 'cookies',
-      entries: 1,
-      date: new Date(),
-    },
-    {
-      id: '124',
-      name: 'Sally',
-      email: 'sally@gmail.com',
-      password: 'bananas',
-      entries: 0,
-      date: new Date(),
-    },
-  ],
-};
-
-// app.use(express.urlencoded({extended: false}));
 app.use(cors());
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.json(db.users);
+app.get('/', async (req, res) => {
+  const users = await db('users').select('*');
+  res.json(users);
 });
 
 app.post('/signin', (req, res) => {
@@ -62,14 +36,14 @@ app.post('/signin', (req, res) => {
   }
 });
 
-app.post('/register', (req, res) => {
+app.post('/register', async (req, res) => {
   const { email, name, password } = req.body;
 
   if (!email || !name || !password) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
-  const existingUser = db.users.find((user) => user.email === email);
+  const existingUser = await db('users').select('*').where('email','=',email);
   if (existingUser) {
     return res.status(409).json({ error: 'Email already in use' });
   }
@@ -79,7 +53,7 @@ app.post('/register', (req, res) => {
     email,
     joined: new Date(),
   };
-  dbknex('users')
+  db('users')
     .returning('*')
     .insert(newUser)
     .then((resp) => res.json(resp as unknown as TUser))
@@ -88,7 +62,7 @@ app.post('/register', (req, res) => {
 
 app.get('/profile/:id', (req, res) => {
   const { id } = req.params;
-  dbknex
+  db
     .select('*')
     .from('users')
     .where({ id })
@@ -104,7 +78,7 @@ app.get('/profile/:id', (req, res) => {
 
 app.put('/image', (req, res) => {
   const { id } = req.body;
-  dbknex('users')
+  db('users')
     .where('id', '=', id)
     .increment('entries', 1)
     .returning('entries')
